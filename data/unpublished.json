@@ -4,9 +4,9 @@
     "Kept rather than deleted: the name is how we notice the author publishing later.",
     "scripts/npm-check.mjs restores the field to plugins.json when one resolves."
   ],
-  "checked": "2026-09-06",
+  "checked": "2026-09-07",
   "method": "GET registry.npmjs.org/<name>; 404 is missing, timeout is unknown and changes nothing",
-  "count": 381,
+  "count": 382,
   "packages": [
     {
       "repo": "shililinghu/dsh-file-upload-deepseek-harness-plug-in",
@@ -1543,6 +1543,12 @@
       "npm": "dsh-plugin-diff-review",
       "why": "no such package",
       "since": "2026-08-21"
+    },
+    {
+      "repo": "QLM1234/dsh-dynamic-assembler",
+      "npm": "dsh-plugin-dynamic-assembler",
+      "why": "published by qlm1234/dsh-plugin-dynamic-assembler",
+      "since": "2026-09-07"
     },
     {
       "repo": "ihuajiu/dsh-plugins-finder",
