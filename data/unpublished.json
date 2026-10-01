@@ -6,7 +6,7 @@
   ],
   "checked": "2026-10-01",
   "method": "GET registry.npmjs.org/<name>; 404 is missing, timeout is unknown and changes nothing",
-  "count": 758,
+  "count": 763,
   "packages": [
     {
       "repo": "834063245-creator/HoloGram",
@@ -785,22 +785,22 @@
       "since": "2026-08-21"
     },
     {
-      "repo": "ls-cool-123/dsh-account-balance",
-      "npm": "dsh-account-balance",
-      "why": "3 listed repos declare this name and the package states no repository",
-      "since": "2026-09-30"
-    },
-    {
-      "repo": "305037991x-pixel/dsh-account-balance",
-      "npm": "dsh-account-balance",
-      "why": "3 listed repos declare this name and the package states no repository",
-      "since": "2026-09-30"
-    },
-    {
       "repo": "ABccgh/dsh-account-balance",
       "npm": "dsh-account-balance",
       "why": "3 listed repos declare this name and the package states no repository",
       "since": "2026-09-30"
+    },
+    {
+      "repo": "ls-cool-123/dsh-account-balance",
+      "npm": "dsh-account-balance",
+      "why": "2 listed repos declare this name and the package states no repository",
+      "since": "2026-10-01"
+    },
+    {
+      "repo": "305037991x-pixel/dsh-account-balance",
+      "npm": "dsh-account-balance",
+      "why": "2 listed repos declare this name and the package states no repository",
+      "since": "2026-10-01"
     },
     {
       "repo": "JimChen-g/dsh-action-outbox",
@@ -843,6 +843,12 @@
       "npm": "dsh-agent-teams-meta",
       "why": "published by nobody — the package states no repository and the repo does not claim the name",
       "since": "2026-09-30"
+    },
+    {
+      "repo": "RealAlexandreAI/dsh-all-search",
+      "npm": "dsh-all-search",
+      "why": "published by retiredphysicist/dsh-plugins",
+      "since": "2026-10-01"
     },
     {
       "repo": "railgun0325/dsh-phone",
@@ -965,6 +971,12 @@
       "npm": "dsh-attachment-formats",
       "why": "no such package",
       "since": "2026-08-21"
+    },
+    {
+      "repo": "RealAlexandreAI/dsh-atuin",
+      "npm": "dsh-atuin",
+      "why": "published by retiredphysicist/dsh-plugins",
+      "since": "2026-10-01"
     },
     {
       "repo": "Stormycry-cryp/dsh-AuthInOne",
@@ -1267,6 +1279,12 @@
       "since": "2026-08-21"
     },
     {
+      "repo": "RealAlexandreAI/dsh-cloudflare-browser-run",
+      "npm": "dsh-cloudflare-browser-run",
+      "why": "published by retiredphysicist/dsh-plugins",
+      "since": "2026-10-01"
+    },
+    {
       "repo": "Dominic789654/awesome-deepseek-harness",
       "path": "plugins/dsh-code-review",
       "npm": "dsh-code-review",
@@ -1477,6 +1495,12 @@
       "npm": "dsh-deepseek-vision",
       "why": "published by siegfly/dsh-deepseek-vision",
       "since": "2026-08-21"
+    },
+    {
+      "repo": "RealAlexandreAI/dsh-dejavu-memory",
+      "npm": "dsh-dejavu-memory",
+      "why": "published by retiredphysicist/dsh-plugins",
+      "since": "2026-10-01"
     },
     {
       "repo": "dream12347/dsh-session-manager",
@@ -1757,6 +1781,12 @@
       "since": "2026-08-21"
     },
     {
+      "repo": "RealAlexandreAI/dsh-gemini-multimodal",
+      "npm": "dsh-gemini-multimodal",
+      "why": "published by retiredphysicist/dsh-plugins",
+      "since": "2026-10-01"
+    },
+    {
       "repo": "uckkk/dsh-git-commit",
       "npm": "dsh-git-commit",
       "why": "2 listed repos declare this name and the package states no repository",
@@ -1984,6 +2014,12 @@
       "npm": "dsh-image2-draw",
       "why": "no such package",
       "since": "2026-08-21"
+    },
+    {
+      "repo": "huanxingyunmo/dsh-inform",
+      "npm": "dsh-inform",
+      "why": "published by nobody — the package states no repository and the repo does not claim the name",
+      "since": "2026-10-01"
     },
     {
       "repo": "3403473060/dsh-inline-images",
@@ -2245,12 +2281,6 @@
       "npm": "dsh-loop-guard",
       "why": "published by carbide4826/dsh-loop-guard",
       "since": "2026-09-29"
-    },
-    {
-      "repo": "lucagiftzek/dsh-mail",
-      "npm": "dsh-mail",
-      "why": "published by nobody — the package states no repository and the repo does not claim the name",
-      "since": "2026-09-30"
     },
     {
       "repo": "kairoz9/dsh-mcp-admin",
