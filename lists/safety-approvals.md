@@ -9,7 +9,7 @@ Permission tiers, gates, redaction, protection.
 | Name | Repo ★ | Repo | Description | Verified against |
 |---|---|---|---|---|
 | penguin-harness | 2433 | [Prism-Shadow/penguin-harness](https://github.com/Prism-Shadow/penguin-harness/tree/HEAD/plugins/sandbox-dsh) | DeepSeek Harness sandbox adaptor for PenguinHarness: the DSH local backend chain behind the harness's own sandbox interface. | 0.1.1-rc.2 (2026-09-18) |
-| Aegis | 1307 | [GanyuanRan/Aegis](https://github.com/GanyuanRan/Aegis) | Make AI coding agents architecture-aware: baseline-first, evidence-verified, drift-checked, and safe across long tasks. | 0.1.0-rc.8 (2026-08-20) |
+| Aegis | 1308 | [GanyuanRan/Aegis](https://github.com/GanyuanRan/Aegis) | Make AI coding agents architecture-aware: baseline-first, evidence-verified, drift-checked, and safe across long tasks. | 0.1.0-rc.8 (2026-08-20) |
 | SkillCorpus | 673 | [EverMind-AI/SkillCorpus](https://github.com/EverMind-AI/SkillCorpus/tree/HEAD/skillcorpus_plugin/engine-typescript) | Per-turn skill retrieval for the DeepSeek Harness: fuse local and remote sources, gate by relevance, inject what fits | 0.1.1-rc.2 (2026-09-18) |
 | k8e | 499 | [xiaods/k8e](https://github.com/xiaods/k8e/tree/HEAD/plugins/deepseek-harness/packages/dsh-k8e-sandbox-bundle) · [npm](https://www.npmjs.com/package/@k8e-sandbox/dsh-k8e-sandbox-bundle) | Installable dsh bundle mounting the k8e-sandbox execution world (KIP-20). | 0.1.0-rc.8 (2026-08-20) |
 | DeepSec | 453 | [Unclecheng-li/DeepSec](https://github.com/Unclecheng-li/DeepSec/tree/HEAD/dsh-plugins/deepsec-shield) | DeepSec Shield code-security audit tools for DeepSeek Harness (dsh): L1/L2/L3 scanning, agent-config audit, supply-chain checks and report generation. | 0.1.0-rc.8 (2026-08-25) |
