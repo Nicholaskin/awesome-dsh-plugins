@@ -31,10 +31,12 @@
 //   node scripts/triage.mjs --report f.json  write the full per-repo trace
 //
 // Env: GITHUB_TOKEN (required for the deep pass; raw file reads need no token)
+// Needs `npm install` once: the peer gate uses the semver release dsh pins.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import semver from "semver";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -110,7 +112,80 @@ const CONCURRENCY = 12;
 // 6,421 files and 25 new packages in total. Re-read profile.ts before this
 // constant moves; a bump without that is the thing this comment exists to
 // prevent.
-const DSH_VERSION = process.env.DSH_VERSION ?? "0.1.1-rc.2";
+//
+// 2026-09-18: re-read at 0.1.5-rc.2 (npm `latest` since 2026-09-10), tag to
+// tag against 0.1.1-rc.2, before moving:
+//
+//   packages/boot/app-boot/src/profile.ts   +621 lines, but the bundle path is
+//     the same code: `dsh.profile.bundles` -> resolveBundleDir ->
+//     `dsh.bundle.patch` joined to the package dir, throw when absent. New:
+//     an optional `dsh.profile.patchReload` ("live" | "startup"), which is a
+//     PROFILE field, not something a plugin declares or this prover reads.
+//   apps/cli/src/plugin.ts                  +6/-1, the template shape above
+//   packages/client/modules/src/index.ts    rewritten around it, still reads
+//     `pkg.dsh.client` (platform/inject/external/immediately) and still needs
+//     a "./client" export
+//   packages/skill/                         source: an import move and one
+//     comment; the frontmatter contract is unchanged
+//
+// So rows proven from here on carry the version a reader actually installs.
+//
+// 2026-09-29: re-read at 0.1.7-rc.2 (npm `latest` since 2026-09-24), tag to
+// tag against 0.1.5-rc.2. The install path held. Something new stands in
+// front of it, and the prover had to learn it before this constant could move.
+//
+//   packages/boot/app-boot/src/profile.ts   768 lines of churn, same bundle
+//     path: `dsh.profile.bundles` -> resolveBundleDir -> `dsh.bundle`, and a
+//     package without `dsh.bundle` is still refused (:671). `patch` may now be
+//     one file or an ordered list (bundlePatchFiles, :58); both are a
+//     `dsh.bundle`, which is all this prover cites. A bundle that fails to
+//     load is now skipped and reported rather than fatal (:680).
+//   apps/cli/src/plugin.ts                  the pnpm forwarder and the bundle
+//     reconcile moved into @deepseek-ai/dsh-plugin-manager, which still keys a
+//     bundle on `dsh.bundle.patch` (operations.ts:77). The CLI kept only the
+//     new allow-version / revoke-version / version-exemptions commands.
+//   packages/client/modules/src/index.ts    still reads `pkg.dsh.client`
+//     (:836) and still needs an `exports["./client"]` (:197, :847).
+//   packages/skill/skill-filesystem/src/    frontmatter refusals unchanged
+//     (:811 on), flat `<name>.md` lane unchanged (:730). New: files are read
+//     through realpath (:853), which changes the reported path, not the rule.
+//
+// The new thing is a peer-compatibility gate, added in 0.1.7-rc.1
+// (2c67633990, packages/boot/app-boot/src/plugin-compatibility.ts). Every
+// `@deepseek-ai/dsh` or `@deepseek-ai/dsh-*` entry in a package's own
+// peerDependencies must satisfy the running version under
+// `semver.satisfies(runtime, range, { includePrerelease: true })` (:77). A miss
+// refuses `dsh plugin add` before pnpm runs ("installation rejected ...
+// nothing was installed", plugin-manager/src/operations.ts:351), rolls back an
+// install whose bundle components miss (:504), and disables the row at profile
+// startup (compatibility-preflight.ts:115, profile.ts:674) unless the user
+// grants an exact-version exemption with `dsh plugin allow-version`. `engines`
+// is typed in dsh-package-manifest and enforced by nothing.
+//
+// So from 0.1.7-rc.1 on, "proven install path" and "installs on this version"
+// are two facts, and this constant used to stamp the second on the strength of
+// the first. `peerRefusal()` below ports the gate with the semver release the
+// harness pins (7.8.5); a proof dsh would refuse is rejected with a recheck
+// date in the drain, and left un-restamped by --prove.
+//
+// Not stamped: 0.2.0-rc.1 (npm `next` since 2026-09-28). Its gate files are
+// identical to 0.1.7-rc.2 and profile.ts gains one line (a shipped optional
+// bundle), so the contract is the same. What moves is which ranges miss: a
+// caret on 0.x stops at the minor, so `^0.1.x` excludes 0.2.0-rc.1. Measured
+// 2026-09-29 off each listed row's own package.json: 6,824 rows declare dsh
+// peers; 0.1.7-rc.2 refuses 682 of them, 0.2.0-rc.1 would refuse 3,534. That is
+// the re-verification queue waiting for the day `latest` moves, and the reason
+// this constant tracks `latest` rather than `next`.
+//
+// 2026-09-30: stamped 0.2.0-rc.2 (npm `latest` since 2026-09-29). Tag to tag
+// against 0.2.0-rc.1, every file cited above is byte-identical:
+// plugin-compatibility.ts, compatibility-preflight.ts, profile.ts,
+// plugin-manager/src/operations.ts, client/modules, skill-filesystem. Only
+// apps/cli/src/plugin.ts moved, and only to refuse `--profile desktop` until
+// the desktop app has initialised that profile. The contract is the same; the
+// ranges that miss are the `^0.1.x` ones counted above.
+const DSH_VERSION = process.env.DSH_VERSION ?? "0.2.0-rc.2";
+if (!semver.valid(DSH_VERSION)) throw new Error(`DSH_VERSION ${JSON.stringify(DSH_VERSION)} is not a semantic version`);
 
 const read = (rel) => JSON.parse(readFileSync(join(ROOT, rel), "utf8"));
 const write = (rel, value) => writeFileSync(join(ROOT, rel), `${JSON.stringify(value, null, 2)}\n`);
@@ -180,7 +255,14 @@ async function gh(path) {
 // root manifest is the strongest claim a repo can make about itself; a
 // stylesheet full of `--dsw-*` overrides is the weakest thing still real.
 const SKIP_PATH = /(^|\/)(node_modules|dist|build|out|vendor|\.git|coverage|fixtures?|examples?|tests?|__tests__)\//;
-const DSW_TOKEN = /--dsw-[a-z0-9-]+/i;
+// An override is a declaration (`--dsw-x:` in a sheet, `"--dsw-x":` in a
+// style object). A mention is `var(--dsw-x)`, which every app that embeds the
+// dsh web UI writes -- desktop shells, launchers, a mobile client, the themes
+// gallery itself. awesome-dsh-themes learned this on 2026-09-02; this prover
+// kept matching the mention. Measured 2026-09-29 over the 74 listed rows whose
+// receipt was `#--dsw-tokens`: 12 declare an override, 48 only consume the
+// tokens, and 14 cite a file that is gone.
+const DSW_OVERRIDE = /--dsw-[a-z0-9-]+"?\s*:/i;
 // dsh's own rule, ported from the rc.8 source rather than approximated:
 // packages/skill/skill-filesystem/src/index.ts `parseFrontmatter` (the first
 // line must be exactly `---`, closed by a later line that is exactly `---`,
@@ -286,11 +368,44 @@ function vendoredFrom(pkg, repo) {
 // proves you use a DeepSeek library, not that dsh loads you.
 const HARNESS_DEP = /^@deepseek-ai\/dsh(-|$)/;
 
+// dsh's install gate, ported rather than approximated: `evaluatePluginCompatibility`
+// in packages/boot/app-boot/src/plugin-compatibility.ts (0.1.7-rc.2), with the
+// same semver. The listed rows spell their dsh peer ranges 597 different ways,
+// `||` and hyphen ranges included, which is why this is the library and not a
+// hand-rolled caret check. Same order as dsh: every entry's type is checked
+// before the list is narrowed to dsh's own packages, and a peer that cannot be
+// validated is refused rather than waved through. `workspace:^|~|*` mean "this
+// runtime" to dsh, so they pass. Returns the refused peers, or null.
+const WORKSPACE_RANGES = new Set(["workspace:^", "workspace:~", "workspace:*"]);
+
+function peerRefusal(pkg, runtime = DSH_VERSION) {
+  if (!pkg || !Object.hasOwn(pkg, "peerDependencies")) return null;
+  const peers = pkg.peerDependencies;
+  if (typeof peers !== "object" || peers === null || Array.isArray(peers)) return { peerDependencies: peers };
+  const refused = {};
+  for (const [name, range] of Object.entries(peers)) {
+    if (typeof range !== "string") {
+      refused[name] = range;
+      continue;
+    }
+    if (!HARNESS_DEP.test(name)) continue;
+    const requirement = WORKSPACE_RANGES.has(range) ? runtime : range;
+    if (requirement.trim() === "" || !semver.satisfies(runtime, requirement, { includePrerelease: true })) {
+      refused[name] = range;
+    }
+  }
+  return Object.keys(refused).length ? refused : null;
+}
+
+// A proof carries `refused` when dsh at DSH_VERSION would refuse the very
+// package it cites. The install path is still real, so the proof stands; what
+// the caller may not do is stamp DSH_VERSION on it.
 function proveFromPackage(pkg, path, repo) {
   if (!pkg) return null;
   if (vendoredFrom(pkg, repo)) return null;
-  if (pkg.dsh?.bundle) return { evidence: `${path}#dsh.bundle`, why: "dsh.bundle manifest" };
-  if (pkg.dsh) return { evidence: `${path}#dsh.${Object.keys(pkg.dsh).join("+")}`, why: "dsh manifest" };
+  const refused = peerRefusal(pkg) ?? undefined;
+  if (pkg.dsh?.bundle) return { evidence: `${path}#dsh.bundle`, why: "dsh.bundle manifest", refused };
+  if (pkg.dsh) return { evidence: `${path}#dsh.${Object.keys(pkg.dsh).join("+")}`, why: "dsh manifest", refused };
   // Take the harness dep, not merely the first `@deepseek-ai/` one. `ds[0]` was
   // an alphabetical accident: `cordis` and `schemastery` both sort ahead of
   // every `dsh-*`, so a package.json naming both got the receipt that proves
@@ -299,10 +414,31 @@ function proveFromPackage(pkg, path, repo) {
   const ds = depsOf(pkg).filter(([, d]) => HARNESS_DEP.test(d));
   if (ds.length) {
     const [section, name] = ds[0];
-    return { evidence: `${path}#${section}.${name}`, why: `depends on ${name}` };
+    return { evidence: `${path}#${section}.${name}`, why: `depends on ${name}`, refused, weak: true, app: embedsHarness(pkg) };
   }
   return null;
 }
+
+// A dependency on the harness is the weakest proof a package.json carries: dsh
+// loads a package for its manifest, not for what it imports. So it is `weak`,
+// and it no longer ends the search. Hand-checking 2026-09-29's admissions off
+// raw.githubusercontent found monorepos proven by their private root's
+// devDependency while the real plugins sat in packages/plugin-*/package.json
+// with their own patch files -- a receipt for the wrong package.
+//
+// The sharpest case is `@deepseek-ai/dsh` itself, the app. A plugin imports
+// harness libraries; an application built on dsh (a desktop shell, a server
+// distribution, a web workspace) depends on the whole harness. Of 678 listed
+// rows proven by a dependency, 157 are a private package depending on the app
+// package; of 17 such proofs in that day's queue, 10.
+const embedsHarness = (pkg) => pkg?.private === true && depsOf(pkg).some(([, d]) => d === "@deepseek-ai/dsh");
+
+// The rejection names the file and the field, because the author is the one
+// person who can fix it, and the fix is one range.
+const refusalReason = (evidence, refused) =>
+  `dsh ${DSH_VERSION} refuses to install it: ${evidence.replace(/#.*/, "")} `
+  + `peerDependencies ${JSON.stringify(refused)} exclude ${DSH_VERSION} `
+  + "(packages/boot/app-boot/src/plugin-compatibility.ts)";
 
 // Plenty of real plugins ship with the GitHub description field blank and
 // their package.json description missing, and say what they are in the first
@@ -408,15 +544,17 @@ async function proveDeep(repo) {
     .filter((p) => !SKIP_PATH.test(p));
 
   const nestedPkgs = paths.filter((p) => p.endsWith("package.json") && p !== "package.json").slice(0, 20);
+  let weakNested = null;
   for (const p of nestedPkgs) {
     const pkg = parse(await raw(repo, p));
     const proof = proveFromPackage(pkg, p, repo);
-    if (proof) {
-      return {
-        proof: { ...proof, path: dirname(p), pkgName: pkg.name ?? null, pkgDesc: pkg.description ?? null },
-        facts: { tree: paths.length },
-      };
-    }
+    if (!proof) continue;
+    const found = {
+      proof: { ...proof, path: dirname(p), pkgName: pkg.name ?? null, pkgDesc: pkg.description ?? null },
+      facts: { tree: paths.length },
+    };
+    if (!proof.weak) return found;
+    weakNested ??= found;
   }
 
   const skills = paths.filter((p) => /(^|\/)SKILL\.md$/i.test(p) && p.split("/").length <= 3);
@@ -472,19 +610,35 @@ async function proveDeep(repo) {
   // install path for a skin, and the only one a pure-CSS theme has.
   for (const p of paths.filter((x) => /\.(css|scss)$/i.test(x)).slice(0, 6)) {
     const text = await raw(repo, p);
-    if (text && DSW_TOKEN.test(text)) {
+    if (text && DSW_OVERRIDE.test(text)) {
       return { proof: { evidence: `${p}#--dsw-tokens`, why: "dsw token override" }, facts: { tree: paths.length } };
     }
   }
 
-  return { proof: null, facts: { tree: paths.length } };
+  return weakNested ?? { proof: null, facts: { tree: paths.length } };
 }
 
 const NO_PATH = "no dsh install path at any depth: no dsh manifest, no @deepseek-ai dependency, no top-level .md carrying skill frontmatter";
 
 async function triage(repo, { deep = true } = {}) {
   const root = await proveRoot(repo);
-  if (root.proof) return { repo, verdict: "accept", ...root.proof, facts: root.facts };
+  if (root.proof && !(root.proof.weak && deep)) return { repo, verdict: "accept", ...root.proof, facts: root.facts };
+
+  if (root.proof) {
+    const deepRead = await proveDeep(repo);
+    if (deepRead.proof && !deepRead.proof.weak) {
+      return { repo, verdict: "accept", ...deepRead.proof, facts: { ...root.facts, ...deepRead.facts } };
+    }
+    // Whether an application built on dsh belongs in a registry of things dsh
+    // loads is a maintainer's call, not a regex's, so it waits for one.
+    if (root.proof.app) {
+      return {
+        repo, verdict: "review", facts: root.facts,
+        reason: "an application built on dsh: a private package.json that depends on @deepseek-ai/dsh itself, and nothing in the tree declares a dsh manifest, a skill, or a patch",
+      };
+    }
+    return { repo, verdict: "accept", ...root.proof, facts: root.facts };
+  }
 
   if (deep) {
     const deepRead = await proveDeep(repo);
@@ -703,7 +857,11 @@ if (PROVE) {
   const proven = results.filter((r) => r.verdict === "accept");
   const unproven = results.filter((r) => r.verdict !== "accept");
   const gone = unproven.filter((r) => r.gone);
+  const refusedNow = proven.filter((r) => r.refused);
   console.error(`triage: proven ${proven.length}, unproven ${unproven.length} of ${results.length}`);
+  if (refusedNow.length) {
+    console.error(`triage: ${refusedNow.length} proven row(s) carry dsh peers ${DSH_VERSION} refuses; their verifiedAgainst is left as it was`);
+  }
   // Nothing in this pipeline has ever checked whether a listed repo still
   // exists. A row pointing at a 404 is the one kind of wrong a registry
   // cannot argue with, so it gets named rather than buried in a tally.
@@ -741,8 +899,12 @@ if (PROVE) {
     if (r.verdict === "accept") {
       p.evidence = r.evidence;
       p.status = "verified";
-      p.lastVerified = TODAY;
-      p.verifiedAgainst = DSH_VERSION;
+      // The file still proves an install path, but dsh at this version would
+      // refuse the package; stamping the version would say it installs.
+      if (!r.refused) {
+        p.lastVerified = TODAY;
+        p.verifiedAgainst = DSH_VERSION;
+      }
     } else {
       // Never delete a row on a machine's say-so — an unreadable tree and a
       // dead project look identical from here. Drop the claim, keep the row,
@@ -756,6 +918,7 @@ if (PROVE) {
   if (REPORT) {
     writeFileSync(REPORT, `${JSON.stringify(results.map((r) => ({
       repo: r.entry.repo, name: r.entry.name, verdict: r.verdict, evidence: r.evidence ?? null, reason: r.reason ?? null,
+      refused: r.refused ?? null,
     })), null, 2)}\n`);
   }
   if (!DRY) {
@@ -858,9 +1021,17 @@ const routed = [];
 // turned up on 2026-08-25, both rejected on 2026-08-15 for "repo tree
 // unreadable at sweep time" with a recheck that came due.
 const overturned = new Set();
+let refusedByPeers = 0;
 
 for (const d of decided) {
   const c = d.candidate;
+  // Not a close call a human could decide differently: dsh itself refuses the
+  // install on this version. It is a snapshot, like "no install path", so it
+  // rechecks -- one widened range and the repo comes back.
+  if (d.verdict === "accept" && d.refused) {
+    Object.assign(d, { verdict: "reject", reason: refusalReason(d.evidence, d.refused), recheck: true });
+    refusedByPeers += 1;
+  }
   if (d.verdict === "review") { held.push({ ...c, note: d.reason }); continue; }
   if (d.verdict === "reject") {
     // An expired rejection that fails again is the same verdict, freshly
@@ -931,6 +1102,7 @@ for (const d of decided) {
 
 console.error([
   `triage: ${admitted.length} admitted, ${rejects.length} rejected,`,
+  `${refusedByPeers} refused by dsh ${DSH_VERSION}'s peer gate,`,
   `${recheckedRejections} rejection(s) re-dated,`,
   `${overturned.size} rejection(s) overturned,`,
   `${held.length} held for review, ${routed.length} routed to themes (api ${apiCalls})`,
@@ -1013,7 +1185,12 @@ console.error(`triage: ${routedKnown.size} repo(s) on the themes routing list`);
 const queuedBefore = new Map(queue.map((c) => [c.repo.toLowerCase(), c]));
 const fromTopic = (repo) =>
   (queuedBefore.get(repo.toLowerCase())?.sources ?? []).includes("github-topic");
-const decidedNow = [...admitted, ...rejects].filter((row) => fromTopic(row.repo)).length;
+// An overturned rejection was already decided -- discover counts every row
+// in rejected.json, expired or not -- so admitting it moves no numerator.
+// Counting it anyway is how the 2026-09-29 drain, which requeued 1,404
+// expired rejections and overturned 232, read 19,059 decided of 18,931.
+const decidedNow = [...admitted, ...rejects]
+  .filter((row) => fromTopic(row.repo) && !overturned.has(row.repo.toLowerCase())).length;
 // What stayed behind is knowable exactly, so count it rather than subtract it:
 // a queue that grew since the sweep made `queued - decidedNow` drift below the
 // rows actually sitting there, and `queued: 0` next to a queue holding 151

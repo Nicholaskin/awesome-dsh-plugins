@@ -100,6 +100,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -o pipefail
+          # The prover ports dsh's peer gate with the semver release dsh pins.
+          # Non-fatal like the report itself: a failed install surfaces as the
+          # prover's import error in the PR body, not as a skipped publish.
+          npm install --no-audit --no-fund || true
           node scripts/triage.mjs --dry-run 2>&1 | tail -3 | tee /tmp/triage.txt || true
 
       - name: Validate
@@ -147,8 +151,12 @@ jobs:
           To apply that verdict, on a branch off main:
 
           \`\`\`sh
-          npm run triage && npm run render && npm run validate
+          npm install && npm run renames && npm run triage && npm run render && npm run validate
           \`\`\`
+
+          \`renames\` goes first: a listed repo that was renamed is queued here
+          under its new name, and triage only skips it once the listed row
+          carries that name.
 
           It writes the provable ones into \`data/plugins.json\` with the file
           each install path was proven in, the unprovable ones into
@@ -244,7 +252,11 @@ jobs:
   # tags, or featured.
   stars:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Measured 7-8 min at 13.7k rows with a names-only npm check. Since
+    # 2026-09-29 the registry is 17.2k rows and npm-check also adopts over 30
+    # days of admissions (5,508 rows that day) and reads each named row's
+    # package.json; a job that times out commits nothing, stars included.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
         with:
@@ -264,8 +276,15 @@ jobs:
       # back one that resolves, so a contributor who supplies a correct npm
       # name keeps it and one who supplies a wrong name gets told why. A
       # timeout changes nothing, so a bad npm day is a no-op, not a purge.
+      #
+      # --adopt over the last 30 days of admissions: triage only carries an npm
+      # name over from an npm-search hit, and the adopt pass that offers every
+      # row the name its package.json declares had run once, on 2026-08-20. By
+      # 2026-09-29 1,454 rows had earned a name that npm confirms is theirs and
+      # carried none. The window keeps the run to recent rows, and still catches
+      # an author who publishes a few weeks after being listed.
       - name: Check npm names still resolve
-        run: node scripts/npm-check.mjs
+        run: node scripts/npm-check.mjs --adopt --added-since "$(date -u -d '30 days ago' +%F)"
 
       - name: Re-render and validate
         run: |
